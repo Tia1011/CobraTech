@@ -170,9 +170,9 @@ function createModal() {
         const scoreHTML = `
             <div class="score-display">
                 <span class="level-badge">Lvl <span id="levelDisplay">1</span>/5</span>
-                <span class="stat">💰 $<span id="assetValue">1600</span></span>
-                <span class="stat">💳 $<span id="liabilityValue">0</span></span>
-                <span class="stat">📊 $<span id="netWorthValue">1600</span></span>
+                <span class="stat">Assets💰 $<span id="assetValue">1600</span></span>
+                <span class="stat">Liabilities💳 $<span id="liabilityValue">0</span></span>
+                <span class="stat">Networth📊 $<span id="netWorthValue">1600</span></span>
             </div>
         `;
         document.body.insertAdjacentHTML('beforeend', scoreHTML);
