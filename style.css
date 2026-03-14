@@ -7,64 +7,68 @@
 body {
     height: 100vh;
     width: 100vw;
-    overflow: hidden; /* Prevents scrolling */
-    background-color: #1a1a1a;
-    font-family: system-ui, sans-serif;
+    overflow: hidden;
+    background-color: #121212;
+    font-family: sans-serif;
 }
 
-/* 9x9 Grid Layout */
+/* 4x4 Grid */
 .main-board {
     display: grid;
-    grid-template-columns: repeat(9, 1fr);
-    grid-template-rows: repeat(9, 1fr);
+    grid-template-columns: repeat(4, 1fr); /* 4 equal columns */
+    grid-template-rows: repeat(4, 1fr);    /* 4 equal rows */
     height: 100vh;
     width: 100vw;
 }
 
 .block {
-    border: 0.5px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #555;
-    font-size: 1.2rem;
-    transition: background 0.3s;
+    color: #444;
+    font-size: 2rem;
+    font-weight: bold;
 }
 
-/* UI Overlay (Floating on top of grid) */
+/* UI Overlay */
 .ui-overlay {
-    position: fixed;
-    bottom: 30px;
+    position: absolute;
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%);
-    background: rgba(255, 255, 255, 0.9);
-    padding: 20px;
-    border-radius: 15px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.95);
+    padding: 30px;
+    border-radius: 20px;
     text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
+    box-shadow: 0 0 50px rgba(0,0,0,0.8);
+    pointer-events: auto;
 }
 
 #dice-img {
-    width: 60px;
-    height: 60px;
-    margin-bottom: 5px;
+    width: 80px;
+    height: 80px;
+    display: block;
+    margin: 0 auto 10px;
+}
+
+#roll-result {
+    margin-bottom: 15px;
+    font-size: 1.1rem;
+    color: #333;
 }
 
 button {
-    padding: 12px 24px;
-    font-size: 1rem;
-    font-weight: bold;
-    color: white;
-    background: #e63946;
-    border: none;
-    border-radius: 8px;
+    padding: 15px 30px;
+    font-size: 1.2rem;
     cursor: pointer;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    transition: background 0.2s;
 }
 
-button:active {
-    transform: scale(0.95);
+button:hover {
+    background: #0056b3;
 }

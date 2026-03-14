@@ -2,9 +2,10 @@ const board = document.getElementById('board');
 const diceImg = document.getElementById('dice-img');
 const resultText = document.getElementById('roll-result');
 
-// Create the 9x9 grid (81 cells)
+// Create 16 cells for a 4x4 grid
 function createBoard() {
-    for (let i = 1; i <= 81; i++) {
+    board.innerHTML = ""; // Clear existing
+    for (let i = 1; i <= 16; i++) {
         const block = document.createElement('div');
         block.classList.add('block');
         block.id = `cell-${i}`;
@@ -13,23 +14,26 @@ function createBoard() {
     }
 }
 
-// Roll function
 function roll() {
-    // 1. Generate random number
+    // Generate 1-6
     const val = Math.floor(Math.random() * 6) + 1;
     
-    // 2. Update Image (Assumes your assets are named dice1.png, etc.)
+    // Update Image
     diceImg.src = `assets/dice${val}.png`;
     
-    // 3. Update Text
+    // Update Text
     resultText.innerText = `You rolled a ${val}!`;
-
-    // Optional: Add a "pop" animation to the dice
-    diceImg.style.transform = 'scale(1.2) rotate(10deg)';
-    setTimeout(() => {
-        diceImg.style.transform = 'scale(1) rotate(0deg)';
-    }, 150);
+    
+    // Quick animation effect
+    diceImg.animate([
+        { transform: 'rotate(0deg) scale(1)' },
+        { transform: 'rotate(180deg) scale(1.2)' },
+        { transform: 'rotate(360deg) scale(1)' }
+    ], {
+        duration: 300,
+        easing: 'ease-out'
+    });
 }
 
-// Initialize board on load
+// Start the board
 createBoard();
