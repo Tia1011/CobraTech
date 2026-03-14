@@ -1,45 +1,40 @@
+// --- Configuration & Global State ---
+const gridSize = 4; 
+const totalCells = gridSize * gridSize;
+let playerPosition = 0;
+let level1Questions = [];
+
 const board = document.getElementById('board');
 const diceImg = document.getElementById('dice-img');
 const resultText = document.getElementById('roll-result');
 
-const gridSize = 4; // Change this to 5, 6, 9, etc.
-
+// --- 1. Grid Generation ---
 function createBoard() {
-    const board = document.getElementById('board');
     if (!board) return;
     board.innerHTML = "";
     
-    // Set the CSS Grid columns dynamically based on gridSize
     board.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
     board.style.gridTemplateRows = `repeat(${gridSize}, 1fr)`;
 
-    const totalCells = gridSize * gridSize;
-
-    // Loop through rows from top to bottom
     for (let r = gridSize - 1; r >= 0; r--) {
         for (let c = 0; c < gridSize; c++) {
             const block = document.createElement('div');
             block.classList.add('block');
             
             let cellValue;
-            
-            // Logic for Snaking based on any gridSize
             if (r % 2 === 0) {
-                // Even rows (0, 2, 4...) go Left-to-Right
                 cellValue = (r * gridSize) + (c + 1);
             } else {
-                // Odd rows (1, 3, 5...) go Right-to-Left
                 cellValue = (r * gridSize) + (gridSize - c);
             }
 
             block.id = `cell-${cellValue}`;
             
-            // Content logic with spacing
             if (cellValue === 1) {
-                block.innerHTML = `<span class="num">1</span><span class="label">START</span>`;
+                block.innerHTML = `<span class="num">1</span>&nbsp;<span class="label">START</span>`;
                 block.classList.add('start-node');
             } else if (cellValue === totalCells) {
-                block.innerHTML = `<span class="num">${totalCells}</span><span class="label">END</span>`;
+                block.innerHTML = `<span class="num">${totalCells}</span>&nbsp;<span class="label">END</span>`;
                 block.classList.add('end-node');
             } else {
                 block.innerText = cellValue;
@@ -50,46 +45,87 @@ function createBoard() {
     }
 }
 
+// --- 2. Dice & Movement Logic ---
 function roll() {
-    // Generate 1-6
     const val = Math.floor(Math.random() * 6) + 1;
     
-    // Update Image
     diceImg.src = `assets/dice${val}.png`;
-    
-    // Update Text
     resultText.innerText = `You rolled a ${val}!`;
     
-    // Quick animation effect
+    movePlayer(val);
+    
     diceImg.animate([
         { transform: 'rotate(0deg) scale(1)' },
         { transform: 'rotate(180deg) scale(1.2)' },
         { transform: 'rotate(360deg) scale(1)' }
-    ], {
-        duration: 300,
-        easing: 'ease-out'
-    });
+    ], { duration: 300, easing: 'ease-out' });
 }
 
+function movePlayer(steps) {
+    // Remove highlight from current cell
+    if (playerPosition > 0) {
+        const oldCell = document.getElementById(`cell-${playerPosition}`);
+        if (oldCell) oldCell.classList.remove('player-here');
+    }
+
+    playerPosition += steps;
+
+    if (playerPosition >= totalCells) {
+        playerPosition = totalCells;
+        updateCellVisuals(playerPosition);
+        setTimeout(() => {
+            alert("Congratulations! You've reached the END!");
+            resetGame();
+        }, 400);
+    } else {
+        updateCellVisuals(playerPosition);
+    }
+}
+
+function updateCellVisuals(pos) {
+    const currentCell = document.getElementById(`cell-${pos}`);
+    if (currentCell) {
+        currentCell.classList.add('player-here', 'visited');
+        
+        // Show the question associated with this cell
+        const questionData = level1Questions[pos - 1];
+        if (questionData) {
+            showQuestionPopup(questionData);
+        }
+    }
+}
+
+function showQuestionPopup(q) {
+    // Basic popup - you can replace this with a Modal later
+    setTimeout(() => {
+        alert(`CATEGORY: ${q.Category}\n\nQUESTION: ${q.Question}\n\nA: ${q.OptionA}\nB: ${q.OptionB}\nC: ${q.OptionC}`);
+    }, 300);
+}
+
+function resetGame() {
+    document.querySelectorAll('.block').forEach(b => {
+        b.classList.remove('player-here', 'visited');
+    });
+    playerPosition = 0;
+    resultText.innerText = "Roll to start";
+}
+
+// --- 3. CSV & Data Logic ---
 async function loadCSV(filePath) {
   const response = await fetch(filePath);
   const text = await response.text();
 
-  const rows = text.trim().split("\n");
-  const headers = rows[0].split(",");
+  const rows = text.trim().split(/\r?\n/); // Handles Windows/Mac line endings
+  const headers = rows[0].split(",").map(h => h.trim());
 
-  const data = rows.slice(1).map(row => {
+  return rows.slice(1).map(row => {
     const values = row.split(",");
     let obj = {};
-
     headers.forEach((header, index) => {
-      obj[header] = values[index];
+      obj[header] = values[index] ? values[index].trim() : "";
     });
-
     return obj;
   });
-
-  return data;
 }
 
 function shuffle(array) {
@@ -97,7 +133,6 @@ function shuffle(array) {
 }
 
 function getLevel1Questions(allQuestions) {
-
   const categories = {
     "Asset/Liability": [],
     "Investments": [],
@@ -105,30 +140,33 @@ function getLevel1Questions(allQuestions) {
     "Debt Management": []
   };
 
-  // group by category
   allQuestions.forEach(q => {
-    categories[q.Category].push(q);
+    const cat = q.Category ? q.Category.trim() : "";
+    if (categories[cat]) {
+      categories[cat].push(q);
+    }
   });
 
   let levelQuestions = [];
-
   for (let category in categories) {
     const randomFour = shuffle(categories[category]).slice(0, 4);
     levelQuestions.push(...randomFour);
   }
 
-  return shuffle(levelQuestions); // shuffle final 16
+  return shuffle(levelQuestions); 
 }
 
+// --- 4. Initialization ---
 async function initGame() {
-
-  const questions = await loadCSV("data.csv");
-
-  const level1 = getLevel1Questions(questions);
-    console.log("ahsdgjsd");
-  console.log(level1); // 16 random questions
-  createBoard();
+  try {
+      const questions = await loadCSV("data.csv");
+      level1Questions = getLevel1Questions(questions);
+      console.log("Questions Loaded:", level1Questions);
+      createBoard();
+  } catch (err) {
+      console.error("Failed to load CSV. Make sure data.csv exists.", err);
+      createBoard(); // Create board anyway so it's not blank
+  }
 }
 
 initGame();
-// Start the board
