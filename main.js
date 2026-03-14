@@ -7,10 +7,14 @@ let currentQuestionIndex = -1;
 let score = 0;
 let selectedAnswer = null;
 let questionAnswered = false;
+let currentQuestionData = null;
+let pendingQuestionCell = null; // Track which cell the question belongs to
+let gameLocked = false; // Lock the game when question is pending
 
 const board = document.getElementById('board');
 const diceImg = document.getElementById('dice-img');
 const resultText = document.getElementById('roll-result');
+const rollButton = document.querySelector('button[onclick="roll()"]');
 
 // --- 1. Grid Generation ---
 function createBoard() {
@@ -34,6 +38,9 @@ function createBoard() {
 
             block.id = `cell-${cellValue}`;
             
+            // Add click handler to reopen question
+            block.onclick = () => handleCellClick(cellValue);
+            
             if (cellValue === 1) {
                 block.innerHTML = `<span class="num">1</span>&nbsp;<span class="label">START</span>`;
                 block.classList.add('start-node');
@@ -49,10 +56,23 @@ function createBoard() {
     }
 }
 
-// --- 2. Dice & Movement Logic ---
+// --- 2. Cell Click Handler ---
+function handleCellClick(cellValue) {
+    // If there's a pending question for this cell and it hasn't been answered
+    if (pendingQuestionCell === cellValue && !questionAnswered && currentQuestionData) {
+        // Reopen the question modal
+        showQuestionModal(currentQuestionData);
+    } else if (gameLocked) {
+        // If game is locked but clicking wrong cell, show message
+        alert("Please answer the current question first!");
+    }
+}
+
+// --- 3. Dice & Movement Logic ---
 function roll() {
-    if (questionAnswered) {
-        // Don't allow rolling while question is pending
+    // Check if game is locked due to pending question
+    if (gameLocked) {
+        resultText.innerText = "❌ Please answer the question first!";
         return;
     }
     
@@ -101,13 +121,22 @@ function updateCellVisuals(pos) {
             const questionData = level1Questions[pos - 2]; // Adjust index because START is position 1
             if (questionData) {
                 currentQuestionIndex = pos - 2;
+                currentQuestionData = questionData;
+                pendingQuestionCell = pos;
+                
+                // Lock the game and show question
+                gameLocked = true;
+                rollButton.style.opacity = '0.5';
+                rollButton.style.cursor = 'not-allowed';
+                resultText.innerText = "❓ Answer the question to continue!";
+                
                 showQuestionModal(questionData);
             }
         }
     }
 }
 
-// --- 3. Modal and Question Display ---
+// --- 4. Modal and Question Display ---
 function createModal() {
     // Check if modal already exists
     if (document.getElementById('questionModal')) {
@@ -158,12 +187,21 @@ function showQuestionModal(q) {
     const nextBtn = document.getElementById('nextQuestion');
     const feedbackDiv = document.getElementById('feedbackMessage');
     
-    // Reset state
+    // Reset state for new question (but preserve questionAnswered status)
     selectedAnswer = null;
-    questionAnswered = false;
-    submitBtn.disabled = true;
-    submitBtn.style.display = 'block';
-    nextBtn.style.display = 'none';
+    
+    // If question was already answered, show the next button instead
+    if (questionAnswered) {
+        submitBtn.style.display = 'none';
+        nextBtn.style.display = 'block';
+        closeBtn.style.display = 'none';
+    } else {
+        submitBtn.disabled = true;
+        submitBtn.style.display = 'block';
+        nextBtn.style.display = 'none';
+        closeBtn.style.display = 'block';
+    }
+    
     feedbackDiv.style.display = 'none';
     feedbackDiv.className = 'feedback-message';
     
@@ -184,7 +222,17 @@ function showQuestionModal(q) {
         const btn = document.createElement('button');
         btn.className = 'option-btn';
         btn.innerHTML = `<span class="option-prefix">${opt.letter}.</span> ${opt.text}`;
-        btn.onclick = () => selectOption(opt.letter);
+        btn.onclick = (e) => selectOption(opt.letter, e);
+        
+        // If question was already answered, show the correct answer highlighting
+        if (questionAnswered) {
+            btn.disabled = true;
+            if (opt.letter === q.CorrectAnswer) {
+                btn.style.backgroundColor = 'rgba(40, 167, 69, 0.3)';
+                btn.style.borderColor = '#28a745';
+            }
+        }
+        
         optionsDiv.appendChild(btn);
     });
     
@@ -193,24 +241,41 @@ function showQuestionModal(q) {
     
     // Event listeners
     submitBtn.onclick = () => submitAnswer(q);
+    
     closeBtn.onclick = () => {
         modal.style.display = 'none';
+        // Keep game locked if question not answered
+        if (!questionAnswered) {
+            resultText.innerText = "⚠️ You must answer the question to continue!";
+        }
     };
+    
     nextBtn.onclick = () => {
         modal.style.display = 'none';
-        questionAnswered = false;
+        // Unlock the game since question is answered
+        gameLocked = false;
+        questionAnswered = false; // Reset for next question
+        currentQuestionData = null;
+        pendingQuestionCell = null;
+        rollButton.style.opacity = '1';
+        rollButton.style.cursor = 'pointer';
+        resultText.innerText = "Roll the dice!";
     };
     
     // Close modal when clicking outside
     window.onclick = (event) => {
         if (event.target === modal) {
+            if (!questionAnswered) {
+                // Don't close if question not answered
+                resultText.innerText = "⚠️ You must answer the question first!";
+                return;
+            }
             modal.style.display = 'none';
-            questionAnswered = false;
         }
     };
 }
 
-function selectOption(letter) {
+function selectOption(letter, event) {
     if (questionAnswered) return;
     
     // Remove selected class from all options
@@ -233,10 +298,12 @@ function submitAnswer(q) {
     const feedbackDiv = document.getElementById('feedbackMessage');
     const submitBtn = document.getElementById('submitAnswer');
     const nextBtn = document.getElementById('nextQuestion');
+    const closeBtn = document.getElementById('closeModal');
     const options = document.querySelectorAll('.option-btn');
     
     // Highlight correct/incorrect answers
     options.forEach(btn => {
+        btn.disabled = true;
         const letter = btn.querySelector('.option-prefix').textContent.replace('.', '');
         if (letter === q.CorrectAnswer) {
             btn.style.backgroundColor = 'rgba(40, 167, 69, 0.3)';
@@ -262,9 +329,19 @@ function submitAnswer(q) {
     submitBtn.disabled = true;
     submitBtn.style.display = 'none';
     nextBtn.style.display = 'block';
+    closeBtn.style.display = 'none';
+    
+    // Mark the cell as answered (optional visual indicator)
+    if (pendingQuestionCell) {
+        const cell = document.getElementById(`cell-${pendingQuestionCell}`);
+        if (cell) {
+            cell.style.borderColor = '#28a745';
+            cell.style.borderWidth = '3px';
+        }
+    }
 }
 
-// --- 4. CSV & Data Logic ---
+// --- 5. CSV & Data Logic ---
 async function loadCSV(filePath) {
     const response = await fetch(filePath);
     const text = await response.text();
@@ -317,15 +394,22 @@ function getLevel1Questions(allQuestions) {
 function resetGame() {
     document.querySelectorAll('.block').forEach(b => {
         b.classList.remove('player-here', 'visited');
+        b.style.borderColor = '';
+        b.style.borderWidth = '';
     });
     playerPosition = 0;
     score = 0;
     document.getElementById('scoreValue').textContent = '0';
     resultText.innerText = "Roll to start";
     questionAnswered = false;
+    gameLocked = false;
+    currentQuestionData = null;
+    pendingQuestionCell = null;
+    rollButton.style.opacity = '1';
+    rollButton.style.cursor = 'pointer';
 }
 
-// --- 5. Initialization ---
+// --- 6. Initialization ---
 async function initGame() {
     try {
         const questions = await loadCSV("data.csv");
