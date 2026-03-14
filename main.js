@@ -3,6 +3,10 @@ const gridSize = 4;
 const totalCells = gridSize * gridSize;
 let playerPosition = 0;
 let level1Questions = [];
+let currentQuestionIndex = -1;
+let score = 0;
+let selectedAnswer = null;
+let questionAnswered = false;
 
 const board = document.getElementById('board');
 const diceImg = document.getElementById('dice-img');
@@ -47,6 +51,11 @@ function createBoard() {
 
 // --- 2. Dice & Movement Logic ---
 function roll() {
+    if (questionAnswered) {
+        // Don't allow rolling while question is pending
+        return;
+    }
+    
     const val = Math.floor(Math.random() * 6) + 1;
     
     diceImg.src = `assets/dice${val}.png`;
@@ -74,7 +83,7 @@ function movePlayer(steps) {
         playerPosition = totalCells;
         updateCellVisuals(playerPosition);
         setTimeout(() => {
-            alert("Congratulations! You've reached the END!");
+            alert(`Congratulations! You've reached the END!\n\nFinal Score: ${score}/${totalCells-1}`);
             resetGame();
         }, 400);
     } else {
@@ -87,19 +96,222 @@ function updateCellVisuals(pos) {
     if (currentCell) {
         currentCell.classList.add('player-here', 'visited');
         
-        // Show the question associated with this cell
-        const questionData = level1Questions[pos - 1];
-        if (questionData) {
-            showQuestionPopup(questionData);
+        // Show the question associated with this cell (skip START cell)
+        if (pos > 1) {
+            const questionData = level1Questions[pos - 2]; // Adjust index because START is position 1
+            if (questionData) {
+                currentQuestionIndex = pos - 2;
+                showQuestionModal(questionData);
+            }
         }
     }
 }
 
-function showQuestionPopup(q) {
-    // Basic popup - you can replace this with a Modal later
-    setTimeout(() => {
-        alert(`CATEGORY: ${q.Category}\n\nQUESTION: ${q.Question}\n\nA: ${q.OptionA}\nB: ${q.OptionB}\nC: ${q.OptionC}`);
-    }, 300);
+// --- 3. Modal and Question Display ---
+function createModal() {
+    // Check if modal already exists
+    if (document.getElementById('questionModal')) {
+        return document.getElementById('questionModal');
+    }
+    
+    const modalHTML = `
+        <div id="questionModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Financial Literacy Question</h2>
+                    <span class="category-badge" id="modalCategory"></span>
+                </div>
+                <div class="question-text" id="modalQuestion"></div>
+                <div class="options-container" id="modalOptions"></div>
+                <div id="feedbackMessage" class="feedback-message" style="display: none;"></div>
+                <div class="modal-footer">
+                    <button class="modal-btn submit-btn" id="submitAnswer" disabled>Submit Answer</button>
+                    <button class="modal-btn close-btn" id="closeModal">Close</button>
+                    <button class="modal-btn next-btn" id="nextQuestion" style="display: none;">Next</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Add score display if it doesn't exist
+    if (!document.querySelector('.score-display')) {
+        const scoreHTML = `
+            <div class="score-display">
+                Score: <span class="score-value" id="scoreValue">0</span>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', scoreHTML);
+    }
+    
+    return document.getElementById('questionModal');
+}
+
+function showQuestionModal(q) {
+    const modal = createModal();
+    const categorySpan = document.getElementById('modalCategory');
+    const questionDiv = document.getElementById('modalQuestion');
+    const optionsDiv = document.getElementById('modalOptions');
+    const submitBtn = document.getElementById('submitAnswer');
+    const closeBtn = document.getElementById('closeModal');
+    const nextBtn = document.getElementById('nextQuestion');
+    const feedbackDiv = document.getElementById('feedbackMessage');
+    
+    // Reset state
+    selectedAnswer = null;
+    questionAnswered = false;
+    submitBtn.disabled = true;
+    submitBtn.style.display = 'block';
+    nextBtn.style.display = 'none';
+    feedbackDiv.style.display = 'none';
+    feedbackDiv.className = 'feedback-message';
+    
+    // Set content
+    categorySpan.textContent = q.Category;
+    questionDiv.textContent = q.Question;
+    
+    // Create options
+    const options = [
+        { letter: 'A', text: q.OptionA },
+        { letter: 'B', text: q.OptionB },
+        { letter: 'C', text: q.OptionC },
+        { letter: 'D', text: q.OptionD }
+    ];
+    
+    optionsDiv.innerHTML = '';
+    options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.innerHTML = `<span class="option-prefix">${opt.letter}.</span> ${opt.text}`;
+        btn.onclick = () => selectOption(opt.letter);
+        optionsDiv.appendChild(btn);
+    });
+    
+    // Show modal
+    modal.style.display = 'block';
+    
+    // Event listeners
+    submitBtn.onclick = () => submitAnswer(q);
+    closeBtn.onclick = () => {
+        modal.style.display = 'none';
+    };
+    nextBtn.onclick = () => {
+        modal.style.display = 'none';
+        questionAnswered = false;
+    };
+    
+    // Close modal when clicking outside
+    window.onclick = (event) => {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+            questionAnswered = false;
+        }
+    };
+}
+
+function selectOption(letter) {
+    if (questionAnswered) return;
+    
+    // Remove selected class from all options
+    document.querySelectorAll('.option-btn').forEach(btn => {
+        btn.classList.remove('selected');
+    });
+    
+    // Add selected class to clicked option
+    event.currentTarget.classList.add('selected');
+    
+    selectedAnswer = letter;
+    document.getElementById('submitAnswer').disabled = false;
+}
+
+function submitAnswer(q) {
+    if (!selectedAnswer || questionAnswered) return;
+    
+    questionAnswered = true;
+    const isCorrect = selectedAnswer === q.CorrectAnswer;
+    const feedbackDiv = document.getElementById('feedbackMessage');
+    const submitBtn = document.getElementById('submitAnswer');
+    const nextBtn = document.getElementById('nextQuestion');
+    const options = document.querySelectorAll('.option-btn');
+    
+    // Highlight correct/incorrect answers
+    options.forEach(btn => {
+        const letter = btn.querySelector('.option-prefix').textContent.replace('.', '');
+        if (letter === q.CorrectAnswer) {
+            btn.style.backgroundColor = 'rgba(40, 167, 69, 0.3)';
+            btn.style.borderColor = '#28a745';
+        } else if (letter === selectedAnswer && !isCorrect) {
+            btn.style.backgroundColor = 'rgba(220, 53, 69, 0.3)';
+            btn.style.borderColor = '#dc3545';
+        }
+    });
+    
+    // Show feedback
+    if (isCorrect) {
+        score++;
+        document.getElementById('scoreValue').textContent = score;
+        feedbackDiv.textContent = '✅ Correct! Well done!';
+        feedbackDiv.className = 'feedback-message feedback-correct';
+    } else {
+        feedbackDiv.textContent = `❌ Wrong! The correct answer is ${q.CorrectAnswer}.`;
+        feedbackDiv.className = 'feedback-message feedback-wrong';
+    }
+    
+    feedbackDiv.style.display = 'block';
+    submitBtn.disabled = true;
+    submitBtn.style.display = 'none';
+    nextBtn.style.display = 'block';
+}
+
+// --- 4. CSV & Data Logic ---
+async function loadCSV(filePath) {
+    const response = await fetch(filePath);
+    const text = await response.text();
+
+    const rows = text.trim().split(/\r?\n/);
+    const headers = rows[0].split(",").map(h => h.trim());
+
+    return rows.slice(1).map(row => {
+        const values = row.split(",");
+        let obj = {};
+        headers.forEach((header, index) => {
+            obj[header] = values[index] ? values[index].trim() : "";
+        });
+        return obj;
+    });
+}
+
+function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
+
+function getLevel1Questions(allQuestions) {
+    const categories = {
+        "Asset/Liability": [],
+        "Investments": [],
+        "Budgeting": [],
+        "Debt Management": []
+    };
+
+    allQuestions.forEach(q => {
+        const cat = q.Category ? q.Category.trim() : "";
+        if (categories[cat]) {
+            categories[cat].push(q);
+        }
+    });
+
+    let levelQuestions = [];
+    for (let category in categories) {
+        const randomFour = shuffle([...categories[category]]).slice(0, 4);
+        levelQuestions.push(...randomFour);
+    }
+
+    return shuffle(levelQuestions);
 }
 
 function resetGame() {
@@ -107,66 +319,26 @@ function resetGame() {
         b.classList.remove('player-here', 'visited');
     });
     playerPosition = 0;
+    score = 0;
+    document.getElementById('scoreValue').textContent = '0';
     resultText.innerText = "Roll to start";
+    questionAnswered = false;
 }
 
-// --- 3. CSV & Data Logic ---
-async function loadCSV(filePath) {
-  const response = await fetch(filePath);
-  const text = await response.text();
-
-  const rows = text.trim().split(/\r?\n/); // Handles Windows/Mac line endings
-  const headers = rows[0].split(",").map(h => h.trim());
-
-  return rows.slice(1).map(row => {
-    const values = row.split(",");
-    let obj = {};
-    headers.forEach((header, index) => {
-      obj[header] = values[index] ? values[index].trim() : "";
-    });
-    return obj;
-  });
-}
-
-function shuffle(array) {
-  return array.sort(() => Math.random() - 0.5);
-}
-
-function getLevel1Questions(allQuestions) {
-  const categories = {
-    "Asset/Liability": [],
-    "Investments": [],
-    "Budgeting": [],
-    "Debt Management": []
-  };
-
-  allQuestions.forEach(q => {
-    const cat = q.Category ? q.Category.trim() : "";
-    if (categories[cat]) {
-      categories[cat].push(q);
-    }
-  });
-
-  let levelQuestions = [];
-  for (let category in categories) {
-    const randomFour = shuffle(categories[category]).slice(0, 4);
-    levelQuestions.push(...randomFour);
-  }
-
-  return shuffle(levelQuestions); 
-}
-
-// --- 4. Initialization ---
+// --- 5. Initialization ---
 async function initGame() {
-  try {
-      const questions = await loadCSV("data.csv");
-      level1Questions = getLevel1Questions(questions);
-      console.log("Questions Loaded:", level1Questions);
-      createBoard();
-  } catch (err) {
-      console.error("Failed to load CSV. Make sure data.csv exists.", err);
-      createBoard(); // Create board anyway so it's not blank
-  }
+    try {
+        const questions = await loadCSV("data.csv");
+        level1Questions = getLevel1Questions(questions);
+        console.log("Questions Loaded:", level1Questions);
+        createBoard();
+        createModal(); // Create modal on init
+    } catch (err) {
+        console.error("Failed to load CSV. Make sure data.csv exists.", err);
+        createBoard();
+        createModal();
+    }
 }
 
+// Start the game
 initGame();
