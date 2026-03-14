@@ -2,15 +2,51 @@ const board = document.getElementById('board');
 const diceImg = document.getElementById('dice-img');
 const resultText = document.getElementById('roll-result');
 
-// Create 16 cells for a 4x4 grid
+const gridSize = 4; // Change this to 5, 6, 9, etc.
+
 function createBoard() {
-    board.innerHTML = ""; // Clear existing
-    for (let i = 1; i <= 16; i++) {
-        const block = document.createElement('div');
-        block.classList.add('block');
-        block.id = `cell-${i}`;
-        block.innerText = i;
-        board.appendChild(block);
+    const board = document.getElementById('board');
+    if (!board) return;
+    board.innerHTML = "";
+    
+    // Set the CSS Grid columns dynamically based on gridSize
+    board.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+    board.style.gridTemplateRows = `repeat(${gridSize}, 1fr)`;
+
+    const totalCells = gridSize * gridSize;
+
+    // Loop through rows from top to bottom
+    for (let r = gridSize - 1; r >= 0; r--) {
+        for (let c = 0; c < gridSize; c++) {
+            const block = document.createElement('div');
+            block.classList.add('block');
+            
+            let cellValue;
+            
+            // Logic for Snaking based on any gridSize
+            if (r % 2 === 0) {
+                // Even rows (0, 2, 4...) go Left-to-Right
+                cellValue = (r * gridSize) + (c + 1);
+            } else {
+                // Odd rows (1, 3, 5...) go Right-to-Left
+                cellValue = (r * gridSize) + (gridSize - c);
+            }
+
+            block.id = `cell-${cellValue}`;
+            
+            // Content logic with spacing
+            if (cellValue === 1) {
+                block.innerHTML = `<span class="num">1</span><span class="label">START</span>`;
+                block.classList.add('start-node');
+            } else if (cellValue === totalCells) {
+                block.innerHTML = `<span class="num">${totalCells}</span><span class="label">END</span>`;
+                block.classList.add('end-node');
+            } else {
+                block.innerText = cellValue;
+            }
+
+            board.appendChild(block);
+        }
     }
 }
 
