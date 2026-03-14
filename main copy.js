@@ -2,10 +2,7 @@
 const gridSize = 4; 
 const totalCells = gridSize * gridSize;
 let playerPosition = 0;
-let currentLevel = 0;
-let levels = [];
-let currentLevelQuestions = [];
-let allQuestions = []; // Store all loaded questions
+let level1Questions = [];
 let currentQuestionIndex = -1;
 let assets = 1600;       // Money / savings earned
 let liabilities = 0;  // Debt or penalties
@@ -13,9 +10,8 @@ let netWorth = 0;     // Calculated automatically
 let selectedAnswer = null;
 let questionAnswered = false;
 let currentQuestionData = null;
-let pendingQuestionCell = null;
-let gameLocked = false;
-let questionsAnswered = []; // Track which questions have been seen
+let pendingQuestionCell = null; // Track which cell the question belongs to
+let gameLocked = false; // Lock the game when question is pending
 
 const board = document.getElementById('board');
 const diceImg = document.getElementById('dice-img');
@@ -44,6 +40,7 @@ function createBoard() {
 
             block.id = `cell-${cellValue}`;
             
+            // Add click handler to reopen question
             block.onclick = () => handleCellClick(cellValue);
             
             if (cellValue === 1) {
@@ -63,15 +60,19 @@ function createBoard() {
 
 // --- 2. Cell Click Handler ---
 function handleCellClick(cellValue) {
+    // If there's a pending question for this cell and it hasn't been answered
     if (pendingQuestionCell === cellValue && !questionAnswered && currentQuestionData) {
+        // Reopen the question modal
         showQuestionModal(currentQuestionData);
     } else if (gameLocked) {
-        resultText.innerText = "⚠️ Please answer the current question first!";
+        // If game is locked but clicking wrong cell, show message
+        alert("Please answer the current question first!");
     }
 }
 
 // --- 3. Dice & Movement Logic ---
 function roll() {
+    // Check if game is locked due to pending question
     if (gameLocked) {
         resultText.innerText = "❌ Please answer the question first!";
         return;
@@ -92,6 +93,7 @@ function roll() {
 }
 
 function movePlayer(steps) {
+    // Remove highlight from current cell
     if (playerPosition > 0) {
         const oldCell = document.getElementById(`cell-${playerPosition}`);
         if (oldCell) oldCell.classList.remove('player-here');
@@ -102,14 +104,9 @@ function movePlayer(steps) {
     if (playerPosition >= totalCells) {
         playerPosition = totalCells;
         updateCellVisuals(playerPosition);
-        
-        // Level complete!
         setTimeout(() => {
-            if (currentLevel < levels.length - 1) {
-                showLevelCompleteModal();
-            } else {
-                showGameCompleteModal();
-            }
+            alert(`Congratulations! You've reached the END!\n\nFinal Score: ${assets}/${totalCells-1}`);
+            resetGame();
         }, 400);
     } else {
         updateCellVisuals(playerPosition);
@@ -121,13 +118,15 @@ function updateCellVisuals(pos) {
     if (currentCell) {
         currentCell.classList.add('player-here', 'visited');
         
+        // Show the question associated with this cell (skip START cell)
         if (pos > 1) {
-            const questionData = currentLevelQuestions[pos - 2];
+            const questionData = level1Questions[pos - 2]; // Adjust index because START is position 1
             if (questionData) {
                 currentQuestionIndex = pos - 2;
                 currentQuestionData = questionData;
                 pendingQuestionCell = pos;
                 
+                // Lock the game and show question
                 gameLocked = true;
                 rollButton.style.opacity = '0.5';
                 rollButton.style.cursor = 'not-allowed';
@@ -139,7 +138,9 @@ function updateCellVisuals(pos) {
     }
 }
 
+// --- 4. Modal and Question Display ---
 function createModal() {
+    // Check if modal already exists
     if (document.getElementById('questionModal')) {
         return document.getElementById('questionModal');
     }
@@ -165,14 +166,13 @@ function createModal() {
     
     document.body.insertAdjacentHTML('beforeend', modalHTML);
     
-    // Compact score display
+    // Add score display if it doesn't exist
     if (!document.querySelector('.score-display')) {
         const scoreHTML = `
             <div class="score-display">
-                <span class="level-badge">Lvl <span id="levelDisplay">1</span>/5</span>
-                <span class="stat">💰 $<span id="assetValue">1600</span></span>
-                <span class="stat">💳 $<span id="liabilityValue">0</span></span>
-                <span class="stat">📊 $<span id="netWorthValue">1600</span></span>
+                Assets: $<span id="assetValue">1600</span> |
+                Liabilities: $<span id="liabilityValue">0</span> |
+                Net Worth: $<span id="netWorthValue">0</span>
             </div>
         `;
         document.body.insertAdjacentHTML('beforeend', scoreHTML);
@@ -191,8 +191,10 @@ function showQuestionModal(q) {
     const nextBtn = document.getElementById('nextQuestion');
     const feedbackDiv = document.getElementById('feedbackMessage');
     
+    // Reset state for new question (but preserve questionAnswered status)
     selectedAnswer = null;
     
+    // If question was already answered, show the next button instead
     if (questionAnswered) {
         submitBtn.style.display = 'none';
         nextBtn.style.display = 'block';
@@ -207,9 +209,11 @@ function showQuestionModal(q) {
     feedbackDiv.style.display = 'none';
     feedbackDiv.className = 'feedback-message';
     
+    // Set content
     categorySpan.textContent = q.Category;
     questionDiv.textContent = q.Question;
     
+    // Create options
     const options = [
         { letter: 'A', text: q.OptionA },
         { letter: 'B', text: q.OptionB },
@@ -224,6 +228,7 @@ function showQuestionModal(q) {
         btn.innerHTML = `<span class="option-prefix">${opt.letter}.</span> ${opt.text}`;
         btn.onclick = (e) => selectOption(opt.letter, e);
         
+        // If question was already answered, show the correct answer highlighting
         if (questionAnswered) {
             btn.disabled = true;
             if (opt.letter === q.CorrectAnswer) {
@@ -235,12 +240,15 @@ function showQuestionModal(q) {
         optionsDiv.appendChild(btn);
     });
     
+    // Show modal
     modal.style.display = 'block';
     
+    // Event listeners
     submitBtn.onclick = () => submitAnswer(q);
     
     closeBtn.onclick = () => {
         modal.style.display = 'none';
+        // Keep game locked if question not answered
         if (!questionAnswered) {
             resultText.innerText = "⚠️ You must answer the question to continue!";
         }
@@ -248,8 +256,9 @@ function showQuestionModal(q) {
     
     nextBtn.onclick = () => {
         modal.style.display = 'none';
+        // Unlock the game since question is answered
         gameLocked = false;
-        questionAnswered = false;
+        questionAnswered = false; // Reset for next question
         currentQuestionData = null;
         pendingQuestionCell = null;
         rollButton.style.opacity = '1';
@@ -257,9 +266,11 @@ function showQuestionModal(q) {
         resultText.innerText = "Roll the dice!";
     };
     
+    // Close modal when clicking outside
     window.onclick = (event) => {
         if (event.target === modal) {
             if (!questionAnswered) {
+                // Don't close if question not answered
                 resultText.innerText = "⚠️ You must answer the question first!";
                 return;
             }
@@ -271,10 +282,12 @@ function showQuestionModal(q) {
 function selectOption(letter, event) {
     if (questionAnswered) return;
     
+    // Remove selected class from all options
     document.querySelectorAll('.option-btn').forEach(btn => {
         btn.classList.remove('selected');
     });
     
+    // Add selected class to clicked option
     event.currentTarget.classList.add('selected');
     
     selectedAnswer = letter;
@@ -292,6 +305,7 @@ function submitAnswer(q) {
     const closeBtn = document.getElementById('closeModal');
     const options = document.querySelectorAll('.option-btn');
     
+    // Highlight correct/incorrect answers
     options.forEach(btn => {
         btn.disabled = true;
         const letter = btn.querySelector('.option-prefix').textContent.replace('.', '');
@@ -304,189 +318,36 @@ function submitAnswer(q) {
         }
     });
     
+    // Show feedback
     if (isCorrect) {
-        let earned = 100;
+        // Correct answer: gain assets
+        let earned = 100; // or vary based on difficulty
         assets += earned;
         feedbackDiv.textContent = `✅ Correct! You earned $${earned} in assets.`;
-        questionsAnswered.push(q.Question);
     } else {
-        let penalty = 100;
+        // Wrong answer: incur liability
+        let penalty = 100; // or vary based on difficulty
         liabilities += penalty;
         feedbackDiv.textContent = `❌ Wrong! You incurred $${penalty} in liabilities. Correct answer: ${q.CorrectAnswer}`;
-        
-        // Wrong answer - move back 1 space
-        setTimeout(() => {
-            playerPosition = Math.max(1, playerPosition - 1);
-            updateCellVisuals(playerPosition);
-        }, 1500);
     }
-    
+
+    // Update net worth display
     updateFinanceDisplay();
+    
     feedbackDiv.style.display = 'block';
     submitBtn.disabled = true;
     submitBtn.style.display = 'none';
     nextBtn.style.display = 'block';
     closeBtn.style.display = 'none';
     
+    // Mark the cell as answered (optional visual indicator)
     if (pendingQuestionCell) {
         const cell = document.getElementById(`cell-${pendingQuestionCell}`);
         if (cell) {
-            cell.style.borderColor = isCorrect ? '#28a745' : '#dc3545';
+            cell.style.borderColor = '#28a745';
             cell.style.borderWidth = '3px';
         }
     }
-}
-
-// --- Level Progression Functions ---
-function createLevels(questions, numLevels) {
-    const categorized = {
-        "Asset/Liability": [],
-        "Investments": [],
-        "Budgeting": [],
-        "Debt Management": []
-    };
-    
-    questions.forEach(q => {
-        const cat = q.Category ? q.Category.trim() : "";
-        if (categorized[cat]) {
-            categorized[cat].push(q);
-        }
-    });
-    
-    let levels = [];
-    for (let level = 0; level < numLevels; level++) {
-        let levelQuestions = [];
-        for (let category in categorized) {
-            const startIdx = level * 4;
-            const endIdx = startIdx + 4;
-            const catQuestions = categorized[category].slice(startIdx, endIdx);
-            
-            if (catQuestions.length > 0) {
-                levelQuestions.push(...catQuestions);
-            } else {
-                // If we run out of questions, loop back to beginning
-                const remainingNeeded = 4;
-                const loopedQuestions = categorized[category].slice(0, remainingNeeded);
-                levelQuestions.push(...loopedQuestions);
-            }
-        }
-        levels.push(shuffle(levelQuestions));
-    }
-    return levels;
-}
-
-function showLevelCompleteModal() {
-    const modal = document.getElementById('levelCompleteModal') || createLevelCompleteModal();
-    
-    const levelScore = assets - (1600 + (questionsAnswered.length * 100)); // Rough calculation
-    
-    document.getElementById('levelScore').textContent = levelScore;
-    document.getElementById('totalAssets').textContent = assets;
-    document.getElementById('totalLiabilities').textContent = liabilities;
-    document.getElementById('totalNetWorth').textContent = assets - liabilities;
-    document.getElementById('currentLevelDisplay').textContent = currentLevel + 1;
-    
-    modal.style.display = 'block';
-}
-
-function createLevelCompleteModal() {
-    const modalHTML = `
-        <div id="levelCompleteModal" class="modal">
-            <div class="modal-content" style="max-width: 500px; text-align: center;">
-                <div class="modal-header" style="justify-content: center;">
-                    <h2>Level <span id="currentLevelDisplay">1</span> Complete! 🎉</h2>
-                </div>
-                <div style="padding: 30px;">
-                    <div style="font-size: 3rem; margin-bottom: 20px;">🏆</div>
-                    <h3 style="color: #ffca28; font-size: 1.8rem; margin-bottom: 20px;">Level Results</h3>
-                    
-                    <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 15px; margin: 20px 0;">
-                        <p style="font-size: 1.2rem; margin: 10px 0;">Level Score: <span id="levelScore" style="color: #ffca28; font-weight: bold;">0</span></p>
-                        <p style="font-size: 1.2rem; margin: 10px 0;">Total Assets: $<span id="totalAssets">1600</span></p>
-                        <p style="font-size: 1.2rem; margin: 10px 0;">Total Liabilities: $<span id="totalLiabilities">0</span></p>
-                        <p style="font-size: 1.2rem; margin: 10px 0;">Net Worth: $<span id="totalNetWorth">1600</span></p>
-                    </div>
-                    
-                    <p style="color: #98fb98; font-size: 1.1rem;">Ready for the next level?</p>
-                </div>
-                <div class="modal-footer" style="justify-content: center;">
-                    <button class="modal-btn next-btn" id="nextLevelBtn">Next Level →</button>
-                    <button class="modal-btn close-btn" id="restartGameBtn">Restart Game</button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-    
-    document.getElementById('nextLevelBtn').onclick = startNextLevel;
-    document.getElementById('restartGameBtn').onclick = () => {
-        resetGame();
-        document.getElementById('levelCompleteModal').style.display = 'none';
-    };
-    
-    return document.getElementById('levelCompleteModal');
-}
-
-function showGameCompleteModal() {
-    const modal = document.getElementById('levelCompleteModal');
-    const header = modal.querySelector('.modal-header h2');
-    const content = modal.querySelector('div[style*="padding: 30px"]');
-    
-    header.textContent = "GAME COMPLETE! 🏆";
-    content.innerHTML = `
-        <div style="font-size: 4rem; margin-bottom: 20px;">👑</div>
-        <h3 style="color: #ffca28; font-size: 2rem; margin-bottom: 20px;">Finance Master!</h3>
-        
-        <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 15px; margin: 20px 0;">
-            <p style="font-size: 1.3rem; margin: 10px 0;">Final Assets: $<span style="color: #ffca28;">${assets}</span></p>
-            <p style="font-size: 1.3rem; margin: 10px 0;">Final Liabilities: $<span style="color: #ff6b6b;">${liabilities}</span></p>
-            <p style="font-size: 1.5rem; margin: 15px 0;">Final Net Worth: $<span style="color: #98fb98;">${assets - liabilities}</span></p>
-            <p style="font-size: 1.1rem; margin-top: 20px;">Questions Answered: ${questionsAnswered.length}</p>
-        </div>
-        
-        <p style="color: #98fb98; font-size: 1.2rem;">Congratulations! You're a Finance Expert! 🎉</p>
-    `;
-    
-    const footer = modal.querySelector('.modal-footer');
-    footer.innerHTML = `
-        <button class="modal-btn next-btn" id="playAgainBtn">Play Again</button>
-    `;
-    
-    document.getElementById('playAgainBtn').onclick = () => {
-        resetGame();
-        modal.style.display = 'none';
-    };
-    
-    modal.style.display = 'block';
-}
-
-function startNextLevel() {
-    currentLevel++;
-    playerPosition = 0;
-    currentLevelQuestions = levels[currentLevel];
-    questionAnswered = false;
-    
-    // Reset board visuals
-    document.querySelectorAll('.block').forEach(b => {
-        b.classList.remove('visited', 'player-here');
-        b.style.borderColor = '';
-        b.style.borderWidth = '';
-    });
-    
-    // Update level display
-    document.getElementById('levelDisplay').textContent = currentLevel + 1;
-    
-    // Hide modal
-    document.getElementById('levelCompleteModal').style.display = 'none';
-    
-    // Update message
-    resultText.innerText = `Level ${currentLevel + 1} - Roll to start!`;
-    
-    // Make sure game is unlocked
-    gameLocked = false;
-    rollButton.style.opacity = '1';
-    rollButton.style.cursor = 'pointer';
 }
 
 // --- 5. CSV & Data Logic ---
@@ -515,22 +376,41 @@ function shuffle(array) {
     return array;
 }
 
+function getLevel1Questions(allQuestions) {
+    const categories = {
+        "Asset/Liability": [],
+        "Investments": [],
+        "Budgeting": [],
+        "Debt Management": []
+    };
+
+    allQuestions.forEach(q => {
+        const cat = q.Category ? q.Category.trim() : "";
+        if (categories[cat]) {
+            categories[cat].push(q);
+        }
+    });
+
+    let levelQuestions = [];
+    for (let category in categories) {
+        const randomFour = shuffle([...categories[category]]).slice(0, 4);
+        levelQuestions.push(...randomFour);
+    }
+
+    return shuffle(levelQuestions);
+}
+
 function resetGame() {
     document.querySelectorAll('.block').forEach(b => {
         b.classList.remove('player-here', 'visited');
         b.style.borderColor = '';
         b.style.borderWidth = '';
     });
-    
     playerPosition = 0;
-    currentLevel = 0;
     assets = 1600;
     liabilities = 0;
-    questionsAnswered = [];
-    currentLevelQuestions = levels[0];
-    
+    netWorth = 0;
     updateFinanceDisplay();
-    document.getElementById('levelDisplay').textContent = '1';
     resultText.innerText = "Roll to start";
     questionAnswered = false;
     gameLocked = false;
@@ -540,27 +420,26 @@ function resetGame() {
     rollButton.style.cursor = 'pointer';
 }
 
-function updateFinanceDisplay() {
-    netWorth = assets - liabilities;
-    document.getElementById('assetValue').textContent = assets;
-    document.getElementById('liabilityValue').textContent = liabilities;
-    document.getElementById('netWorthValue').textContent = netWorth;
-}
-
 // --- 6. Initialization ---
 async function initGame() {
     try {
-        allQuestions = await loadCSV("data.csv");
-        levels = createLevels(allQuestions, 5);
-        currentLevelQuestions = levels[0];
-        console.log("Levels Created:", levels.length, "Total Questions:", levels.flat().length);
+        const questions = await loadCSV("data.csv");
+        level1Questions = getLevel1Questions(questions);
+        console.log("Questions Loaded:", level1Questions);
         createBoard();
-        createModal();
+        createModal(); // Create modal on init
     } catch (err) {
         console.error("Failed to load CSV. Make sure data.csv exists.", err);
         createBoard();
         createModal();
     }
+}
+
+function updateFinanceDisplay() {
+    netWorth = assets - liabilities;
+    document.getElementById('assetValue').textContent = assets;
+    document.getElementById('liabilityValue').textContent = liabilities;
+    document.getElementById('netWorthValue').textContent = netWorth;
 }
 
 // Start the game

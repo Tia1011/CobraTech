@@ -1,25 +1,90 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>4x4 Full Screen Dice</title>
+    <title>Finance Frenzy - 4x4 Board Game</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Add Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <div class="main-board" id="board"></div>  
+    <div class="game-title">Finance Frenzy</div>
     
-    <div class="ui-overlay">
-        <div class="dice-display">
-            <img src="assets/dice1.png" id="dice-img" alt="dice">
-            <div id="roll-result">Roll to start</div>
+    <!-- Main game container -->
+    <div class="game-container">
+        <div class="main-board" id="board"></div>  
+        
+        <div class="ui-overlay">
+            <div class="dice-display">
+                <img src="assets/dice1.png" id="dice-img" alt="dice">
+                <div id="roll-result">Roll to start</div>
+            </div>
+            <button onclick="roll()">Roll Dice</button>
         </div>
-        <button onclick="roll()">Roll Dice</button>
+    </div>
+
+    <!-- New Category Cards Section -->
+    <div class="cards-section">
+        <h3 class="cards-title">Learn About Finance</h3>
+        <div class="cards-container">
+            <!-- Asset/Liability Card -->
+            <div class="info-card">
+                <div class="card-header">
+                    <i class="fas fa-balance-scale card-icon"></i>
+                    <h4>Asset vs Liability</h4>
+                </div>
+                <div class="card-content">
+                    <p><strong>Assets</strong> put money in your pocket - things you own that have value (savings, investments, property).</p>
+                    <p><strong>Liabilities</strong> take money out - things you owe (loans, credit card debt, mortgage).</p>
+                    <p class="example">Building assets and reducing liabilities increases your net worth!</p>
+                </div>
+            </div>
+
+            <!-- Investments Card -->
+            <div class="info-card">
+                <div class="card-header">
+                    <i class="fas fa-chart-line card-icon"></i>
+                    <h4>Investments</h4>
+                </div>
+                <div class="card-content">
+                    <p>Putting money to work to grow over time. Common investments include stocks, bonds, and real estate.</p>
+                    <p><strong>Key concepts:</strong> Diversification, compound interest, risk vs reward.</p>
+                    <p class="example">Historically, the stock market averages 7-10% returns per year!</p>
+                </div>
+            </div>
+
+            <!-- Budgeting Card -->
+            <div class="info-card">
+                <div class="card-header">
+                    <i class="fas fa-wallet card-icon"></i>
+                    <h4>Budgeting</h4>
+                </div>
+                <div class="card-content">
+                    <p>A plan for your money. The 50/30/20 rule:</p>
+                    <p>• <strong>50%</strong> - Needs (rent, food, utilities)</p>
+                    <p>• <strong>30%</strong> - Wants (entertainment, dining out)</p>
+                    <p>• <strong>20%</strong> - Savings & debt repayment</p>
+                    <p class="example">Track expenses to find where your money really goes!</p>
+                </div>
+            </div>
+
+            <!-- Debt Management Card -->
+            <div class="info-card">
+                <div class="card-header">
+                    <i class="fas fa-credit-card card-icon"></i>
+                    <h4>Debt Management</h4>
+                </div>
+                <div class="card-content">
+                    <p>Strategies to handle what you owe:</p>
+                    <p><strong>Snowball method:</strong> Pay smallest debts first for quick wins.</p>
+                    <p><strong>Avalanche method:</strong> Pay highest interest debts first to save money.</p>
+                    <p class="example">Good debt (mortgage) vs Bad debt (high-interest credit cards)</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="main.js"></script>
 </body>
-</html>* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
+</html>
